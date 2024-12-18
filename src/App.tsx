@@ -1,52 +1,58 @@
 /* eslint-disable max-len */
 /* eslint-disable jsx-a11y/label-has-associated-control */
 /* eslint-disable jsx-a11y/control-has-associated-label */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { UserWarning } from './UserWarning';
 import { createTodo, deleteTodo, getTodos, USER_ID } from './api/todos';
 import { Todo } from './types/Todo';
 import { ErrorNotification } from './components/ErrorNotification';
-import { Filters } from './types/Filters';
+import { FiltersType } from './types/FiltersType';
 import { TodoList } from './components/TodoList';
 import { Footer } from './components/Footer';
 import { Header } from './components/Header';
+import { ErrorTypes } from './types/ErrorTypes';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [errorTodos, setErrorTodos] = useState('');
-  const [status, setStatus] = useState(Filters.All);
+  const [errorTodos, setErrorTodos] = useState(ErrorTypes.NoErrors);
+  const [status, setStatus] = useState(FiltersType.All);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingTodosIds, setDeletingTodosIds] = useState<number[]>([]);
 
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
 
   const handleErrorClose = () => {
-    setErrorTodos('');
+    setErrorTodos(ErrorTypes.NoErrors);
   };
 
   const visibleTodos = todos?.filter(todo => {
     switch (status) {
-      case Filters.Completed:
+      case FiltersType.Completed:
         return todo.completed;
-      case Filters.Active:
-        return todo.completed === false;
+      case FiltersType.Active:
+        return !todo.completed;
       default:
         return true;
     }
   });
 
-  const activeTodosCount = todos?.filter(todo => !todo.completed).length;
+  const activeTodosCount = useMemo(
+    () => todos.filter(todo => !todo.completed).length,
+    [todos],
+  );
 
-  const completedTodos = todos?.filter(todo => todo.completed);
+  const completedTodos = useMemo(
+    () => todos.filter(todo => todo.completed),
+    [todos],
+  );
   const completedTodosCount = completedTodos.length;
 
   useEffect(() => {
     setIsLoading(true);
     getTodos()
       .then(data => setTodos(data))
-      .catch(error => {
-        setErrorTodos('Unable to load todos');
-        throw new Error(error);
+      .catch(() => {
+        setErrorTodos(ErrorTypes.Loading);
       })
       .finally(() => {
         setIsLoading(false);
@@ -59,43 +65,28 @@ export const App: React.FC = () => {
 
       setTodos(currentTodos => [...currentTodos, createdTodo]);
     } catch (error) {
-      setErrorTodos('Unable to add a todo');
+      setErrorTodos(ErrorTypes.Add);
       throw error;
     }
   };
 
   const onDeleteTodo = async (todoId: number) => {
+    setDeletingTodosIds(currentIds => [...currentIds, todoId]);
     try {
-      setIsDeleting(true);
       await deleteTodo(todoId);
-      setTodos(currentTodos =>
-        currentTodos?.filter(todo => todo.id !== todoId),
-      );
+      setTodos(currentTodos => currentTodos.filter(todo => todo.id !== todoId));
     } catch (error) {
-      setErrorTodos('Unable to delete a todo');
+      setErrorTodos(ErrorTypes.Delete);
       throw error;
     } finally {
-      setIsDeleting(false);
+      setDeletingTodosIds(currentIds => currentIds.filter(id => id !== todoId));
     }
   };
 
   const onDeleteAllCompleted = () => {
-    const values: Promise<void>[] = [];
-
     completedTodos.forEach(completedTodo => {
-      values.push(onDeleteTodo(completedTodo.id));
+      onDeleteTodo(completedTodo.id);
     });
-
-    Promise.all(values)
-      .then(() => {
-        setTodos(currentTodos =>
-          currentTodos?.filter(todo => todo.completed === false),
-        );
-      })
-      .catch(error => {
-        setErrorTodos('Unable to delete a todo');
-        throw new Error(error);
-      });
   };
 
   if (!USER_ID) {
@@ -122,7 +113,7 @@ export const App: React.FC = () => {
               todos={visibleTodos}
               onDeleteTodo={onDeleteTodo}
               isDataLoading={isLoading}
-              isDeleting={isDeleting}
+              deletingTodosIds={deletingTodosIds}
               tempTodo={tempTodo}
             />
 

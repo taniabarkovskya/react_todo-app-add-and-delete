@@ -9,12 +9,13 @@ import React, {
 import cn from 'classnames';
 import { USER_ID } from '../../api/todos';
 import { Todo } from '../../types/Todo';
+import { ErrorTypes } from '../../types/ErrorTypes';
 
 type Props = {
   todos: Todo[];
   completedTodosCount: number;
-  onAddTodo: (newTodo: Omit<Todo, 'id'>) => void;
-  setErrorTodos: Dispatch<SetStateAction<string>>;
+  onAddTodo: (newTodo: Omit<Todo, 'id'>) => Promise<void>;
+  setErrorTodos: Dispatch<SetStateAction<ErrorTypes>>;
   tempTodo: Todo | null;
   setTempTodo: Dispatch<SetStateAction<Todo | null>>;
 };
@@ -32,8 +33,6 @@ export const Header: React.FC<Props> = props => {
   const [todoTitle, setTodoTitle] = useState('');
   const normalizedTitle = todoTitle.trim();
 
-  // const [isTodoPosting, setIsTodoPosting] = useState(false);
-
   const inputNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -50,7 +49,7 @@ export const Header: React.FC<Props> = props => {
     event.preventDefault();
 
     if (!normalizedTitle) {
-      setErrorTodos('Title should not be empty');
+      setErrorTodos(ErrorTypes.EmptyTitle);
 
       return;
     }
@@ -77,7 +76,6 @@ export const Header: React.FC<Props> = props => {
 
   return (
     <header className="todoapp__header">
-      {/* this button should have `active` class only if all todos are completed */}
       <button
         type="button"
         className={cn('todoapp__toggle-all', {
@@ -86,7 +84,6 @@ export const Header: React.FC<Props> = props => {
         data-cy="ToggleAllButton"
       />
 
-      {/* Add a todo on form submit */}
       <form onSubmit={handleSubmit}>
         <input
           ref={inputNameRef}
